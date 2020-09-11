@@ -1,2 +1,2 @@
 prometheus_client
-koji
+python3-requests

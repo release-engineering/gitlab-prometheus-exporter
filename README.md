@@ -1,7 +1,7 @@
-This is an experimental prometheus exporter for koji that just exposes information about tasks.
+This is an experimental prometheus exporter for gitlab, with an emphasis on exposing *counters*
+about pipelines.
 
-This polls koji-hub looking for tasks created since startup and exposes metrics about those tasks
-for a prometheus server.
+[mvisonneau/gitlab-ci-pipelines-exporter](https://github.com/mvisonneau/gitlab-ci-pipelines-exporter) is another good alternative.
 
-Instead of building on this, we should get a prometheus endpoint added to koji-hub itself, which
-would be far less wasteful.
+This polls a gitlab instance for a configured list of projects and exposes prometheus metrics about
+the ci pipeline runs for each project.
