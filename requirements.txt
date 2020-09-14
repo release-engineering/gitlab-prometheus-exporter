@@ -1,2 +1,3 @@
+arrow
 prometheus_client
 python3-requests

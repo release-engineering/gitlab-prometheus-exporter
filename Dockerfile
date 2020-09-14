@@ -5,6 +5,7 @@ LABEL maintainer="Ralph Bean" \
       distribution-scope="public"
 
 RUN dnf install -y --setopt=tsflags=nodocs \
+                python3-arrow \
                 python3-requests \
                 python3-prometheus_client \
     && dnf clean all
