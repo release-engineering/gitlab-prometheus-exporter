@@ -106,8 +106,12 @@ def find_applicable_buckets(duration):
 
 
 def gitlab_pipeline_duration_seconds(data):
-    counts = {}
     duration_buckets = DURATION_BUCKETS + ["+Inf"]
+
+    # Build counts of observations into histogram "buckets"
+    counts = {}
+    # Sum of all observed durations
+    durations = {}
 
     for project, pipelines in data.items():
         for pipeline in pipelines:
@@ -117,20 +121,23 @@ def gitlab_pipeline_duration_seconds(data):
             except IncompletePipeline:
                 continue
 
-            # Initialize structure
+            # Initialize structures
+            durations[project] = durations.get(project, 0)
             counts[project] = counts.get(project, {})
             for bucket in duration_buckets:
                 counts[project][bucket] = counts[project].get(bucket, 0)
 
-            # Increment applicable bucket counts
+            # Increment applicable bucket counts and duration sums
+            durations[project] += duration
             for bucket in find_applicable_buckets(duration):
                 counts[project][bucket] += 1
 
     for project in counts:
         buckets = [
-            (str(bucket), counts[project][bucket]) for bucket in duration_buckets
+            (str(bucket), counts[project][bucket])
+            for bucket in duration_buckets
         ]
-        yield buckets, [project, BRANCH]
+        yield buckets, durations[project], [project, BRANCH]
 
 
 def only(data, status):
@@ -171,9 +178,9 @@ def scrape():
         'Histogram of gitlab pipeline durations',
         labels=LABELS,
     )
-    for buckets, labels in gitlab_pipeline_duration_seconds(pipelines):
+    for buckets, duration_sum, labels in gitlab_pipeline_duration_seconds(pipelines):
         gitlab_pipeline_duration_seconds_family.add_metric(
-            labels, buckets, sum_value=None
+            labels, buckets, sum_value=duration_sum
         )
 
     # Replace this in one atomic operation to avoid race condition to the Expositor
