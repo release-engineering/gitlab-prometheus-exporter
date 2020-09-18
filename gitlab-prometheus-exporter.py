@@ -39,9 +39,6 @@ metrics = {}
 DURATION_BUCKETS = [180, 300, 600, 900, 1200, 1500, 1800, 2100, 2400, 2700]
 
 
-error_status = "failed"
-
-
 class IncompletePipeline(Exception):
     """ Error raised when a gitlab pipeline is not complete. """
 
@@ -140,10 +137,23 @@ def gitlab_pipeline_duration_seconds(data):
         yield buckets, durations[project], [project, BRANCH]
 
 
-def only(data, status):
+# A cache that prevents us from letting the error counter decrement if a pipeline failes, is
+# retried, and then succeeds.  If we ever observe a pipeline to fail -- always count it as an
+# error after that.
+_seen = {}
+
+
+def _errored(project, pipelines):
+    _seen[project] = _seen.get(project, [])
+    errors = [p for p in pipelines if p['status'] == "failed" or p['id'] in _seen[project]]
+    _seen[project] = [p['id'] for p in errors]
+    return errors
+
+
+def errored(data):
     result = {}
     for project, pipelines in data.items():
-        result[project] = [p for p in pipelines if p['status'] == status]
+        result[project] = _errored(project, pipelines)
     return result
 
 
@@ -156,13 +166,12 @@ def scrape():
     for value, labels in gitlab_pipelines_total(pipelines):
         gitlab_pipelines_total_family.add_metric(labels, value)
 
-    # raise NotImplementedError("Need special handling for retried error pipelines.")
-    # gitlab_pipeline_errors_total_family = CounterMetricFamily(
-    #     'gitlab_pipeline_errors_total', 'Count of all gitlab pipeline errors', labels=LABELS
-    # )
-    # error_pipelines = only(pipelines, status=error_status)
-    # for value, labels in gitlab_pipelines_total(error_pipelines):
-    #     gitlab_pipeline_errors_total_family.add_metric(labels, value)
+    gitlab_pipeline_errors_total_family = CounterMetricFamily(
+        'gitlab_pipeline_errors_total', 'Count of all gitlab pipeline errors', labels=LABELS
+    )
+    error_pipelines = errored(pipelines)
+    for value, labels in gitlab_pipelines_total(error_pipelines):
+        gitlab_pipeline_errors_total_family.add_metric(labels, value)
 
     gitlab_in_progress_pipelines_family = GaugeMetricFamily(
         'gitlab_in_progress_pipelines',
@@ -187,7 +196,7 @@ def scrape():
     metrics.update(
         {
             'gitlab_pipelines_total': gitlab_pipelines_total_family,
-            # 'gitlab_pipeline_errors_total': gitlab_pipeline_errors_total_family,
+            'gitlab_pipeline_errors_total': gitlab_pipeline_errors_total_family,
             'gitlab_in_progress_pipelines': gitlab_in_progress_pipelines_family,
             'gitlab_pipeline_duration_seconds': gitlab_pipeline_duration_seconds_family,
         }
