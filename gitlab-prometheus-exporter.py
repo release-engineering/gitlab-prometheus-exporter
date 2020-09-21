@@ -32,7 +32,7 @@ session.headers = {'Authorization': f'Bearer {TOKEN}'}
 
 LABELS = ['project', 'branch']
 BRANCH = 'master'  # Only support the master branch for now
-START = datetime.datetime.utcnow().isoformat()
+START = None
 metrics = {}
 
 # In seconds
@@ -158,6 +158,9 @@ def errored(data):
 
 
 def scrape():
+    global START
+    START = datetime.datetime.utcnow().date().isoformat()
+
     pipelines = retrieve_gitlab_pipelines(updated_after=START)
 
     gitlab_pipelines_total_family = CounterMetricFamily(
