@@ -5,10 +5,11 @@ LABEL maintainer="Ralph Bean" \
       distribution-scope="public"
 
 RUN dnf install -y --setopt=tsflags=nodocs \
-                python3-arrow \
-                python3-requests \
-                python3-prometheus_client \
+                python3-pip \
     && dnf clean all
+
+COPY requirements.txt /usr/local/requirements.txt
+RUN pip3 install --no-dependencies -r /usr/local/requirements.txt
 
 # Allow a non-root user to install a custom root CA at run-time
 RUN chmod g+w /etc/pki/tls/certs/ca-bundle.crt
