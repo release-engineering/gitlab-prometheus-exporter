@@ -13,6 +13,9 @@ import urllib
 import arrow
 import requests
 
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
 from prometheus_client.core import (
     REGISTRY,
     CounterMetricFamily,
@@ -27,7 +30,16 @@ GITLAB_URL = os.environ['GITLAB_URL']
 PROJECTS = [p.strip() for p in os.environ['GITLAB_PROJECTS'].split(',')]
 TOKEN = os.environ['GITLAB_TOKEN']
 
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504],
+    method_whitelist=["HEAD", "GET", "OPTIONS"]
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
 session = requests.Session()
+session.mount("https://", adapter)
+session.mount("http://", adapter)
 session.headers = {'Authorization': f'Bearer {TOKEN}'}
 
 LABELS = ['project', 'branch']
