@@ -65,7 +65,7 @@ def get_gitlab_pipelines(project, **kwargs):
     page = 1
     while True:
         params['page'] = page
-        response = session.get(url, params=params)
+        response = session.get(url, params=params, timeout=30)
         response.raise_for_status()
         data = response.json()
         if not data:
