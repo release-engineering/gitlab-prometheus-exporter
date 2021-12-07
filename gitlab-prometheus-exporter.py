@@ -43,7 +43,7 @@ session.mount("http://", adapter)
 session.headers = {'Authorization': f'Bearer {TOKEN}'}
 
 LABELS = ['project', 'branch']
-BRANCH = 'master'  # Only support the master branch for now
+BRANCHES = ['master', 'main']
 START = None
 metrics = {}
 
@@ -60,31 +60,34 @@ class IncompletePipeline(Exception):
 def get_gitlab_pipelines(project, **kwargs):
     slug = urllib.parse.quote_plus(project)
     url = f"{GITLAB_URL}/api/v4/projects/{slug}/pipelines"
-    params = dict(ref=BRANCH, order_by='updated_at', sort='asc')
-    params.update(kwargs)
-    page = 1
-    while True:
-        params['page'] = page
-        response = session.get(url, params=params, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        if not data:
-            break
+    for branch in BRANCHES:
+        params = dict(ref=branch, order_by='updated_at', sort='asc')
+        params.update(kwargs)
+        page = 1
+        while True:
+            params['page'] = page
+            response = session.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if not data:
+                break
 
-        yield from data
-        page = page + 1
+            yield from data
+            page = page + 1
 
 
 def gitlab_pipelines_total(data):
-    counts = {}
+    for branch in BRANCHES:
+        counts = {}
+        for project, pipelines in data.items():
+            counts[project] = counts.get(project, 0)
+            for pipeline in pipelines:
+                if pipeline['ref'] != branch:
+                    continue
+                counts[project] += 1
 
-    for project, pipelines in data.items():
-        counts[project] = counts.get(project, 0)
-        for pipeline in pipelines:
-            counts[project] += 1
-
-    for project in counts:
-        yield counts[project], [project, BRANCH]
+        for project in counts:
+            yield counts[project], [project, branch]
 
 
 def retrieve_gitlab_pipelines(**kwargs):
@@ -117,36 +120,38 @@ def find_applicable_buckets(duration):
 def gitlab_pipeline_duration_seconds(data):
     duration_buckets = DURATION_BUCKETS + ["+Inf"]
 
-    # Build counts of observations into histogram "buckets"
-    counts = {}
-    # Sum of all observed durations
-    durations = {}
+    for branch in BRANCHES:
+        # Build counts of observations into histogram "buckets"
+        counts = {}
+        # Sum of all observed durations
+        durations = {}
+        for project, pipelines in data.items():
+            for pipeline in pipelines:
+                if pipeline['ref'] != branch:
+                    continue
 
-    for project, pipelines in data.items():
-        for pipeline in pipelines:
+                try:
+                    duration = calculate_duration(pipeline)
+                except IncompletePipeline:
+                    continue
 
-            try:
-                duration = calculate_duration(pipeline)
-            except IncompletePipeline:
-                continue
+                # Initialize structures
+                durations[project] = durations.get(project, 0)
+                counts[project] = counts.get(project, {})
+                for bucket in duration_buckets:
+                    counts[project][bucket] = counts[project].get(bucket, 0)
 
-            # Initialize structures
-            durations[project] = durations.get(project, 0)
-            counts[project] = counts.get(project, {})
-            for bucket in duration_buckets:
-                counts[project][bucket] = counts[project].get(bucket, 0)
+                # Increment applicable bucket counts and duration sums
+                durations[project] += duration
+                for bucket in find_applicable_buckets(duration):
+                    counts[project][bucket] += 1
 
-            # Increment applicable bucket counts and duration sums
-            durations[project] += duration
-            for bucket in find_applicable_buckets(duration):
-                counts[project][bucket] += 1
-
-    for project in counts:
-        buckets = [
-            (str(bucket), counts[project][bucket])
-            for bucket in duration_buckets
-        ]
-        yield buckets, durations[project], [project, BRANCH]
+        for project in counts:
+            buckets = [
+                (str(bucket), counts[project][bucket])
+                for bucket in duration_buckets
+            ]
+            yield buckets, durations[project], [project, branch]
 
 
 # A cache that prevents us from letting the error counter decrement if a pipeline failes, is
