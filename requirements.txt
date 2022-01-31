@@ -2,7 +2,7 @@ arrow==1.2.1
 certifi==2021.10.8
 chardet==4.0.0
 idna==3.3
-prometheus-client==0.12.0
+prometheus-client==0.13.1
 python-dateutil==2.8.2
 requests==2.27.1
 six==1.16.0
