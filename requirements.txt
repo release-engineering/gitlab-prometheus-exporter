@@ -1,5 +1,5 @@
 arrow==1.2.2
-certifi==2021.10.8
+certifi==2022.5.18
 chardet==4.0.0
 idna==3.3
 prometheus-client==0.13.1
