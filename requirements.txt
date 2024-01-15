@@ -1,6 +1,6 @@
 arrow==1.2.3
 certifi==2023.7.22
-chardet==5.0.0
+chardet==5.2.0
 idna==3.4
 prometheus-client==0.17.1
 python-dateutil==2.8.2
