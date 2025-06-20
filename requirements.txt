@@ -6,4 +6,4 @@ prometheus-client==0.22.1
 python-dateutil==2.9.0.post0
 requests==2.32.4
 six==1.17.0
-urllib3==2.4.0
+urllib3==2.5.0
