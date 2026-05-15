@@ -4,6 +4,6 @@ chardet==7.4.3
 idna==3.15
 prometheus-client==0.25.0
 python-dateutil==2.9.0.post0
-requests==2.34.1
+requests==2.34.2
 six==1.17.0
 urllib3==2.7.0
